@@ -117,7 +117,9 @@ class XGrammarGrammarBackend(BaseGrammarBackend):
         key_type, key_string = key
         if key_type == "json":
             try:
-                ctx = self.grammar_compiler.compile_json_schema(schema=key_string)
+                ctx = self.grammar_compiler.compile_json_schema(
+                    schema=key_string, indent=2
+                )
             except RuntimeError as e:
                 logging.warning(
                     f"Skip invalid json_schema: json_schema={key_string}, {e=}"
