@@ -40,8 +40,16 @@ _is_cuda = is_cuda()
 _is_cpu_amx_available = cpu_has_amx_support()
 _is_cpu = is_cpu()
 
+# gelu_and_mul and silu_and_mul in sgl-kernel don't support ROCm 
+_use_aiter = get_bool_env_var("SGLANG_AITER_MOE") and _is_hip
+
 if _is_cuda:
     from sgl_kernel import gelu_and_mul, silu_and_mul
+elif _use_aiter:
+    import aiter
+    from aiter import gelu_and_mul, silu_and_mul
+    from vllm import _custom_ops as vllm_ops
+    from vllm._custom_ops import scaled_fp8_quant
 elif _is_cpu and _is_cpu_amx_available:
     pass
 else:
@@ -1647,14 +1655,14 @@ def fused_experts_impl(
             block_shape=block_shape,
         )
         if activation == "silu":
-            if _is_cuda:
+            if _is_cuda or _use_aiter:
                 silu_and_mul(intermediate_cache1.view(-1, N), intermediate_cache2)
             else:
                 vllm_ops.silu_and_mul(
                     intermediate_cache2, intermediate_cache1.view(-1, N)
                 )
         elif activation == "gelu":
-            if _is_cuda:
+            if _is_cuda or _use_aiter:
                 gelu_and_mul(intermediate_cache1.view(-1, N), intermediate_cache2)
             else:
                 vllm_ops.gelu_and_mul(
